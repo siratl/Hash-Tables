@@ -9,7 +9,8 @@
   More specifically, the `next` field is a pointer pointing to the the 
   next `LinkedPair` in the list of `LinkedPair` nodes. 
  */
-typedef struct LinkedPair {
+typedef struct LinkedPair
+{
   char *key;
   char *value;
   struct LinkedPair *next;
@@ -18,7 +19,8 @@ typedef struct LinkedPair {
 /*
   Hash table with linked pairs.
  */
-typedef struct HashTable {
+typedef struct HashTable
+{
   int capacity;
   LinkedPair **storage;
 } HashTable;
@@ -41,7 +43,8 @@ LinkedPair *create_pair(char *key, char *value)
  */
 void destroy_pair(LinkedPair *pair)
 {
-  if (pair != NULL) {
+  if (pair != NULL)
+  {
     free(pair->key);
     free(pair->value);
     free(pair);
@@ -57,9 +60,10 @@ unsigned int hash(char *str, int max)
 {
   unsigned long hash = 5381;
   int c;
-  unsigned char * u_str = (unsigned char *)str;
+  unsigned char *u_str = (unsigned char *)str;
 
-  while ((c = *u_str++)) {
+  while ((c = *u_str++))
+  {
     hash = ((hash << 5) + hash) + c;
   }
 
@@ -73,7 +77,9 @@ unsigned int hash(char *str, int max)
  */
 HashTable *create_hash_table(int capacity)
 {
-  HashTable *ht;
+  HashTable *ht = malloc(sizeof(HashTable));
+  ht->capacity = capacity;
+  ht->storage = calloc(capacity, sizeof(LinkedPair *));
 
   return ht;
 }
@@ -89,7 +95,33 @@ HashTable *create_hash_table(int capacity)
  */
 void hash_table_insert(HashTable *ht, char *key, char *value)
 {
-
+  unsigned int index = hash(key, ht->capacity);
+  if (ht->storage[index] == NULL)
+  {
+    ht->storage[index] = create_pair(key, value);
+  }
+  else
+  {
+    LinkedPair *curr_pair = ht->storage[index];
+    LinkedPair *prev_pair = NULL;
+    int key_found = 0;
+    while (curr_pair && key_found == 0)
+    {
+      if (strcmp(curr_pair->key, key) == 0)
+      {
+        free(curr_pair->value);
+        curr_pair->value = strdup(value);
+        key_found = 1;
+        break;
+      }
+      prev_pair = curr_pair;
+      curr_pair = curr_pair->next;
+    }
+    if (key_found == 0)
+    {
+      prev_pair->next = create_pair(key, value);
+    }
+  }
 }
 
 /*
@@ -102,7 +134,34 @@ void hash_table_insert(HashTable *ht, char *key, char *value)
  */
 void hash_table_remove(HashTable *ht, char *key)
 {
-
+  unsigned int index = hash(key, ht->capacity);
+  LinkedPair *curr_pair = ht->storage[index];
+  LinkedPair *prev_pair = NULL;
+  int key_found = 0;
+  while (curr_pair && key_found == 0)
+  {
+    if (strcmp(curr_pair->key, key) == 0)
+    {
+      if (prev_pair)
+      {
+        prev_pair->next = curr_pair->next;
+      }
+      else
+      {
+        ht->storage[index] = curr_pair->next;
+      }
+      destroy_pair(curr_pair);
+      key_found = 1;
+      break;
+    }
+    prev_pair = curr_pair;
+    curr_pair = curr_pair->next;
+  }
+  if (key_found == 0)
+  {
+    fprintf(stderr, "Error: key does not exist\n");
+    return;
+  }
 }
 
 /*
@@ -115,6 +174,18 @@ void hash_table_remove(HashTable *ht, char *key)
  */
 char *hash_table_retrieve(HashTable *ht, char *key)
 {
+  unsigned int index = hash(key, ht->capacity);
+  LinkedPair *curr_pair = ht->storage[index];
+
+  while (curr_pair)
+  {
+    if (strcmp(curr_pair->key, key) == 0)
+    {
+      return curr_pair->value;
+    }
+
+    curr_pair = curr_pair->next;
+  }
   return NULL;
 }
 
@@ -125,7 +196,22 @@ char *hash_table_retrieve(HashTable *ht, char *key)
  */
 void destroy_hash_table(HashTable *ht)
 {
-
+  if (ht != NULL)
+  {
+    for (int index = 0; index < ht->capacity; index++)
+    {
+      LinkedPair *curr_pair = ht->storage[index];
+      LinkedPair *next_pair = NULL;
+      while (curr_pair)
+      {
+        next_pair = curr_pair->next;
+        destroy_pair(curr_pair);
+        curr_pair = next_pair;
+      }
+    }
+    free(ht->storage);
+    free(ht);
+  }
 }
 
 /*
@@ -138,11 +224,23 @@ void destroy_hash_table(HashTable *ht)
  */
 HashTable *hash_table_resize(HashTable *ht)
 {
-  HashTable *new_ht;
-
-  return new_ht;
+  if (ht != NULL)
+  {
+    HashTable *new_ht = create_hash_table(ht->capacity * 2);
+    for (int index = 0; index < ht->capacity; index++)
+    {
+      LinkedPair *curr_pair = ht->storage[index];
+      while (curr_pair)
+      {
+        hash_table_insert(new_ht, curr_pair->key, curr_pair->value);
+        curr_pair = curr_pair->next;
+      }
+    }
+    destroy_hash_table(ht);
+    return new_ht;
+  }
+  return NULL;
 }
-
 
 #ifndef TESTING
 int main(void)
